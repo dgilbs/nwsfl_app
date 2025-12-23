@@ -30,7 +30,12 @@ authenticator = stauth.Authenticate(
 # Database connection
 @st.cache_resource
 def get_connection():
-    return psycopg2.connect(os.getenv('DATABASE_URL'))
+    # Try Streamlit secrets first (for Streamlit Cloud), then fall back to .env
+    database_url = st.secrets.get("DATABASE_URL") if "DATABASE_URL" in st.secrets else os.getenv('DATABASE_URL')
+    if not database_url:
+        st.error("DATABASE_URL not found in secrets or environment variables")
+        st.stop()
+    return psycopg2.connect(database_url)
 
 conn = get_connection()
 

@@ -59,6 +59,10 @@ coverage.xml
 .env.local
 .env.*.local
 
+# Secrets and sensitive files
+streamlit_secrets.txt
+config.yaml
+
 # Database
 *.db
 *.sqlite

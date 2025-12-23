@@ -12,9 +12,9 @@ credentials:
       email: charlie@example.com
       name: Charlie Davis
       password: $2b$12$REPLACE_WITH_GENERATED_HASH
-    # Add remaining 7 users
 
 cookie:
   expiry_days: 30
-  key: random_signature_key_change_this_12345
+  key: REPLACE_WITH_SECURE_RANDOM_KEY
   name: nwsl_fantasy_cookie
+
