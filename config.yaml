@@ -1,0 +1,64 @@
+credentials:
+  usernames:
+    alice:
+      email: alice@example.com
+      name: Alice Smith
+      password: $2b$12$REPLACE_WITH_GENERATED_HASH
+    bob:
+      email: bob@example.com
+      name: Bob Jones
+      password: $2b$12$REPLACE_WITH_GENERATED_HASH
+    charlie:
+      email: charlie@example.com
+      name: Charlie Davis
+      password: $2b$12$REPLACE_WITH_GENERATED_HASH
+    # Add remaining 7 users
+
+cookie:
+  expiry_days: 30
+  key: random_signature_key_change_this_12345
+  name: nwsl_fantasy_cookie
+```
+
+---
+
+## **File 4: `.env`** (template)
+```
+DATABASE_URL=postgresql://user:password@host:port/database
+```
+
+---
+
+## **File 5: `.gitignore`**
+```
+# Environment
+.env
+*.env
+
+# Authentication
+config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
