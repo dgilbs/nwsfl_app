@@ -62,6 +62,7 @@ coverage.xml
 # Secrets and sensitive files
 streamlit_secrets.txt
 config.yaml
+.streamlit/secrets.toml
 
 # Database
 *.db

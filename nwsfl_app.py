@@ -10,15 +10,27 @@ from yaml.loader import SafeLoader
 load_dotenv()
 
 # Page config
-st.set_page_config(page_title="NWSL Fantasy League", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="NWSFL", page_icon="⚽", layout="wide")
 
 # Load authentication config
 if os.path.exists('config.yaml'):
     with open('config.yaml') as file:
         config = yaml.load(file, Loader=SafeLoader)
 else:
-    # For Streamlit Cloud - use secrets
-    config = dict(st.secrets)
+    # For Streamlit Cloud - use secrets (convert to mutable dict)
+    config = {
+        'credentials': {
+            'usernames': {
+                username: dict(user_data)
+                for username, user_data in st.secrets['credentials']['usernames'].items()
+            }
+        },
+        'cookie': {
+            'name': st.secrets['cookie']['name'],
+            'key': st.secrets['cookie']['key'],
+            'expiry_days': st.secrets['cookie']['expiry_days']
+        }
+    }
 
 authenticator = stauth.Authenticate(
     config['credentials'],
@@ -28,19 +40,40 @@ authenticator = stauth.Authenticate(
 )
 
 # Database connection
+def get_database_url():
+    """Get the database URL from secrets or environment."""
+    return st.secrets.get("DATABASE_URL") if "DATABASE_URL" in st.secrets else os.getenv('DATABASE_URL')
+
 @st.cache_resource
-def get_connection():
-    # Try Streamlit secrets first (for Streamlit Cloud), then fall back to .env
-    database_url = st.secrets.get("DATABASE_URL") if "DATABASE_URL" in st.secrets else os.getenv('DATABASE_URL')
+def init_connection():
+    """Initialize database connection."""
+    database_url = get_database_url()
     if not database_url:
         st.error("DATABASE_URL not found in secrets or environment variables")
         st.stop()
     return psycopg2.connect(database_url)
 
-conn = get_connection()
+def get_conn():
+    """Get database connection, reconnecting if necessary."""
+    conn = init_connection()
+    # Test if connection is alive by trying to get a cursor
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+        return conn
+    except (psycopg2.InterfaceError, psycopg2.OperationalError):
+        # Connection is dead, clear cache and reconnect
+        init_connection.clear()
+        conn = init_connection()
+        return conn
 
 # Login
-name, authentication_status, username = authenticator.login('Login', 'main')
+authenticator.login(location='main')
+
+# Access authentication state from session state
+name = st.session_state.get("name")
+authentication_status = st.session_state.get("authentication_status")
+username = st.session_state.get("username")
 
 if authentication_status == False:
     st.error('Username/password is incorrect')
@@ -53,16 +86,16 @@ elif authentication_status:
     # Sidebar
     st.sidebar.title("⚽ NWSL Fantasy League")
     st.sidebar.write(f"**Logged in as:** {name}")
-    authenticator.logout('Logout', 'sidebar')
+    authenticator.logout(location='sidebar')
     
     # Get user's leagues
     leagues_query = """
         SELECT DISTINCT l.league_id, l.league_name, t.team_name, t.team_id
-        FROM leagues l
-        JOIN teams t ON l.league_id = t.league_id
+        FROM nwsfl.leagues l
+        JOIN nwsfl.teams t ON l.league_id = t.league_id
         WHERE t.user_id = %s
     """
-    user_leagues = pd.read_sql(leagues_query, conn, params=(username,))
+    user_leagues = pd.read_sql(leagues_query, get_conn(), params=(username,))
     
     if user_leagues.empty:
         st.warning("You're not in any leagues yet! Contact the commissioner.")
@@ -92,12 +125,12 @@ elif authentication_status:
                 t.team_name,
                 t.user_id,
                 COALESCE(ls.total_points, 0) as total_points
-            FROM teams t
-            LEFT JOIN league_standings ls ON t.team_id = ls.team_id
+            FROM nwsfl.teams t
+            LEFT JOIN nwsfl.league_standings ls ON t.team_id = ls.team_id
             WHERE t.league_id = %s
             ORDER BY total_points DESC
         """
-        df = pd.read_sql(query, conn, params=(current_league_id,))
+        df = pd.read_sql(query, get_conn(), params=(current_league_id,))
         
         # Add rank
         df.insert(0, 'Rank', range(1, len(df) + 1))
@@ -124,14 +157,14 @@ elif authentication_status:
                 p.position,
                 p.team as nwsl_team,
                 COALESCE(SUM(ps.points), 0) as total_points
-            FROM rosters r
-            JOIN players p ON r.player_id = p.player_id
-            LEFT JOIN player_scores ps ON p.player_id = ps.player_id
+            FROM nwsfl.rosters r
+            JOIN nwsfl.players p ON r.player_id = p.player_id
+            LEFT JOIN nwsfl.player_scores ps ON p.player_id = ps.player_id
             WHERE r.team_id = %s
             GROUP BY p.player_id, p.player_name, p.position, p.team
             ORDER BY p.position, total_points DESC
         """
-        df = pd.read_sql(query, conn, params=(current_team_id,))
+        df = pd.read_sql(query, get_conn(), params=(current_team_id,))
         
         if df.empty:
             st.info("No players on your roster yet!")
@@ -148,12 +181,12 @@ elif authentication_status:
         # Get roster
         roster_query = """
             SELECT r.player_id, p.player_name, p.position, p.team
-            FROM rosters r
-            JOIN players p ON r.player_id = p.player_id
+            FROM nwsfl.rosters r
+            JOIN nwsfl.players p ON r.player_id = p.player_id
             WHERE r.team_id = %s
             ORDER BY p.position, p.player_name
         """
-        roster = pd.read_sql(roster_query, conn, params=(current_team_id,))
+        roster = pd.read_sql(roster_query, get_conn(), params=(current_team_id,))
         
         if roster.empty:
             st.warning("You don't have any players on your roster!")
@@ -162,10 +195,10 @@ elif authentication_status:
         # Get current lineup
         lineup_query = """
             SELECT player_id 
-            FROM lineups 
+            FROM nwsfl.lineups 
             WHERE team_id = %s AND matchweek = %s
         """
-        current_lineup = pd.read_sql(lineup_query, conn, params=(current_team_id, matchweek))
+        current_lineup = pd.read_sql(lineup_query, get_conn(), params=(current_team_id, matchweek))
         
         # Create player display with position
         roster['display'] = roster['player_name'] + " (" + roster['position'] + " - " + roster['team'] + ")"
@@ -190,11 +223,12 @@ elif authentication_status:
         with col1:
             if st.button("💾 Save Lineup", type="primary", disabled=(len(selected_players) != 11)):
                 try:
+                    conn = get_conn()
                     cursor = conn.cursor()
                     
                     # Delete existing lineup
                     cursor.execute(
-                        "DELETE FROM lineups WHERE team_id = %s AND matchweek = %s",
+                        "DELETE FROM nwsfl.lineups WHERE team_id = %s AND matchweek = %s",
                         (current_team_id, matchweek)
                     )
                     
@@ -202,7 +236,7 @@ elif authentication_status:
                     for player_display in selected_players:
                         player_id = roster[roster['display'] == player_display]['player_id'].iloc[0]
                         cursor.execute(
-                            "INSERT INTO lineups (team_id, matchweek, player_id) VALUES (%s, %s, %s)",
+                            "INSERT INTO nwsfl.lineups (team_id, matchweek, player_id) VALUES (%s, %s, %s)",
                             (current_team_id, matchweek, player_id)
                         )
                     
@@ -229,14 +263,14 @@ elif authentication_status:
                 ps.points,
                 ps.goals,
                 ps.assists
-            FROM lineups l
-            JOIN teams t ON l.team_id = t.team_id
-            JOIN players p ON l.player_id = p.player_id
-            LEFT JOIN player_scores ps ON p.player_id = ps.player_id AND ps.matchweek = %s
+            FROM nwsfl.lineups l
+            JOIN nwsfl.teams t ON l.team_id = t.team_id
+            JOIN nwsfl.players p ON l.player_id = p.player_id
+            LEFT JOIN nwsfl.player_scores ps ON p.player_id = ps.player_id AND ps.matchweek = %s
             WHERE l.matchweek = %s AND t.league_id = %s
             ORDER BY t.team_name, ps.points DESC
         """
-        df = pd.read_sql(query, conn, params=(matchweek, matchweek, current_league_id))
+        df = pd.read_sql(query, get_conn(), params=(matchweek, matchweek, current_league_id))
         
         if df.empty:
             st.info(f"No scores available for Matchweek {matchweek} yet")
