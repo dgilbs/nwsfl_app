@@ -335,7 +335,7 @@ def upsert_df_sqlite(df, table_name, db_config):
     for col in idf.columns:
         idf.loc[:, col] = idf[col].fillna(0)
     idf = idf.drop_duplicates(subset=info['key'])
-    conn = sqlite3.connect('soccer.db')
+    conn = sqlite3.connect('nwsfl.db')
     cursor = conn.cursor()
     columns = ', '.join(idf.columns)
     placeholders = ', '.join(['?'] * len(idf.columns))
@@ -495,7 +495,7 @@ def clean_rosters(file_path, config, info):
     return df
 
 
-def upsert_df(df, table_name, conn_string, unique_columns, db_config, schema='soccer', dedupe=False):
+def upsert_df(df, table_name, conn_string, unique_columns, db_config, schema='nwsfl', dedupe=False):
     """
     Upserts a pandas DataFrame to a PostgreSQL table.
     

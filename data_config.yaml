@@ -761,24 +761,24 @@ match_report_keeper_dtypes:
   goals_allowed: Int64
   minutes: Int64
 match_report_upsert_config:
-  schema: soccer
+  schema: nwsfl
   table: player_match_{}_stats
 fact_table_upsert_config:
   players:
-    table_schema: soccer
+    table_schema: nwsfl
     table_name: players
     match_report_columns:
       - player_id
       - player
   squads:
-    table_schema: soccer
+    table_schema: nwsfl
     table_name: squads
     match_report_columns:
       - squad_id
       - squad
       - gender
   match_report_ids:
-    table_schema: soccer
+    table_schema: nwsfl
     table_name: match_report_ids
     match_report_columns:
       - id

@@ -10,14 +10,10 @@ import sys
 import warnings
 from datetime import date, timedelta, datetime
 from dotenv import load_dotenv
+import query_db as qdb
 
 # Load environment variables from .env file
 load_dotenv()
-
-current_dir = os.getcwd()
-parent_dir = os.path.abspath(os.path.join(current_dir, '../base_code/'))
-sys.path.append(parent_dir)
-import query_db as qdb
 
 # Get connection string from environment variable
 conn_string = os.getenv('DATABASE_URL')
@@ -156,7 +152,7 @@ if len(errors) > 0:
 else: 
     print('no errors found')
 
-# qdb.backup_all_soccer_tables(conn_string)
+# qdb.backup_all_nwsfl_tables(conn_string)
 # print('backup complete')
 
 

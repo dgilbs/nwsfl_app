@@ -64,12 +64,34 @@ streamlit_secrets.txt
 config.yaml
 .streamlit/secrets.toml
 
+# Configuration files that may contain local paths or settings
+db_config.yaml
+leagues.yaml
+code_run_config_default.yaml
+
 # Database
 *.db
 *.sqlite
 *.sqlite3
 
+# Database utility scripts (contain schema operations)
+copy_schemas.py
+copy_schemas_auto.py
+generate_copy_sql.py
+copy_tables.sql
+
 # Logs
 *.log
 logs/
+
+# Configuration backups (may contain sensitive data)
+*.backup
+config.yaml.backup
+
+# dbt artifacts (generated files)
+nwsfl_dbt/target/
+nwsfl_dbt/dbt_packages/
+nwsfl_dbt/logs/
+target/
+dbt_packages/
 
